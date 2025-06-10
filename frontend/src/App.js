@@ -411,7 +411,7 @@ const Home = ({ isLoggedIn, userName }) => {
                     <div>
                       <h4 style={styles.postTitle}>{post.title}</h4>
                       <div style={styles.postMeta}>
-                        Por <strong>{post.authorName}</strong> • {new Date(post.createdAt).toLocaleDateString('pt-BR')}
+                        Por <strong>{post.author_name}</strong> • {new Date(post.created_at).toLocaleDateString('pt-BR')}
                       </div>
                     </div>
                     <span style={{...styles.statusBadge, ...styles.statusPublished}}>
@@ -561,9 +561,9 @@ const PostDetail = ({ isLoggedIn, user }) => {
         <div style={styles.cardHeader}>
           <h1 style={{...styles.cardTitle, fontSize: '2rem'}}>{post.title}</h1>
           <div style={styles.postMeta}>
-            Por <strong>{post.authorName}</strong> • {new Date(post.createdAt).toLocaleDateString('pt-BR')}
-            {post.updatedAt !== post.createdAt && (
-              <span> • Atualizado em {new Date(post.updatedAt).toLocaleDateString('pt-BR')}</span>
+            Por <strong>{post.author_name}</strong> • {new Date(post.created_at).toLocaleDateString('pt-BR')}
+            {post.updated_at !== post.created_at && (
+              <span> • Atualizado em {new Date(post.updated_at).toLocaleDateString('pt-BR')}</span>
             )}
           </div>
           <div style={{marginTop: '1rem'}}>
@@ -593,7 +593,7 @@ const PostDetail = ({ isLoggedIn, user }) => {
           <Link to="/" style={{...styles.btn, ...styles.btnSecondary}}>
             ← Voltar ao Início
           </Link>
-          {isLoggedIn && user && user.id === post.authorId && (
+          {isLoggedIn && user && user.id === post.author_id && (
             <Link to={`/edit-post/${post.id}`} style={{...styles.btn, ...styles.btnWarning}}>
               ✏️ Editar Post
             </Link>
@@ -645,10 +645,10 @@ const PostDetail = ({ isLoggedIn, user }) => {
               <div key={comment.id} style={styles.commentCard}>
                 <div style={styles.commentHeader}>
                   <div>
-                    <span style={styles.commentAuthor}>👤 {comment.authorName}</span>
-                    <span style={styles.commentDate}> • {new Date(comment.createdAt).toLocaleDateString('pt-BR')}</span>
+                    <span style={styles.commentAuthor}>👤 {comment.author_name}</span>
+                    <span style={styles.commentDate}> • {new Date(comment.created_at).toLocaleDateString('pt-BR')}</span>
                   </div>
-                  {isLoggedIn && user && user.id === comment.authorId && (
+                  {isLoggedIn && user && user.id === comment.author_id && (
                     <button 
                       onClick={() => handleDeleteComment(comment.id)}
                       style={{...styles.btn, ...styles.btnDanger, fontSize: '0.7rem', padding: '0.25rem 0.5rem'}}
@@ -699,7 +699,7 @@ const EditPost = ({ user }) => {
     if (result.success) {
       const post = result.data.post;
       
-    if (user && Number(user.id) !== Number(post.author_id)) { 
+      if (user && Number(user.id) !== Number(post.author_id)) { 
         setError('Você só pode editar seus próprios posts');
         setLoading(false);
         return;
@@ -929,9 +929,9 @@ const Dashboard = ({ user }) => {
                     <div>
                       <h4 style={styles.postTitle}>{post.title}</h4>
                       <div style={styles.postMeta}>
-                        Criado em {new Date(post.createdAt).toLocaleDateString('pt-BR')}
-                        {post.updatedAt !== post.createdAt && (
-                          <span> • Atualizado em {new Date(post.updatedAt).toLocaleDateString('pt-BR')}</span>
+                        Criado em {new Date(post.created_at).toLocaleDateString('pt-BR')}
+                        {post.updated_at !== post.created_at && (
+                          <span> • Atualizado em {new Date(post.updated_at).toLocaleDateString('pt-BR')}</span>
                         )}
                       </div>
                     </div>
@@ -1406,3 +1406,4 @@ function App() {
 }
 
 export default App;
+
