@@ -26,7 +26,6 @@ app.use(cors({
   credentials: true
 } ));
 
-
 // Rate limiting
 const limiter = rateLimit({
     windowMs: (process.env.RATE_LIMIT_WINDOW || 15) * 60 * 1000,
@@ -77,6 +76,12 @@ try {
     console.error('❌ Erro ao carregar comment routes:', error.message);
 }
 
+// Servir arquivos estáticos do frontend em produção
+if (process.env.NODE_ENV === 'production') {
+  // Servir arquivos estáticos do build do React
+  app.use(express.static(path.join(__dirname, '../frontend/build')));
+}
+
 // Rota de debug (adicione após as outras rotas)
 app.get('/api/debug/users', async (req, res) => {
     try {
@@ -102,6 +107,15 @@ app.get('/api/test', (req, res) => {
     });
 });
 
+// Para todas as rotas que não são da API, servir o index.html do React
+if (process.env.NODE_ENV === 'production') {
+  app.get('*', (req, res) => {
+    if (!req.path.startsWith('/api')) {
+      res.sendFile(path.join(__dirname, '../frontend/build', 'index.html'));
+    }
+  });
+}
+
 // Middleware de tratamento de erros
 app.use((err, req, res, next) => {
     console.error('Erro:', err.stack);
@@ -111,8 +125,8 @@ app.use((err, req, res, next) => {
     });
 });
 
-// Middleware para rotas não encontradas
-app.use('*', (req, res) => {
+// Middleware para rotas não encontradas (apenas para APIs)
+app.use('/api/*', (req, res) => {
     res.status(404).json({ 
         error: 'Rota não encontrada',
         path: req.originalUrl
