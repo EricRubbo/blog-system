@@ -21,10 +21,11 @@ app.use(helmet({
 // Configurar CORS
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? ['https://seu-app.onrender.com'] // Vamos atualizar depois
+    ? ['https://blog-system-0okj.onrender.com'] 
     : ['http://localhost:3000'],
   credentials: true
 } ));
+
 
 // Rate limiting
 const limiter = rateLimit({
