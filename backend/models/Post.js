@@ -27,9 +27,9 @@ class Post {
         });
     }
 
-    // Buscar post por ID
+    // Buscar post por ID - CORRIGIDO PARA INCLUIR COMENTÁRIOS
     static async findById(id) {
-        return new Promise((resolve, reject) => {
+        return new Promise(async (resolve, reject) => {
             console.log('📄 [POST] Buscando post por ID:', id);
             
             const sql = `
@@ -39,7 +39,7 @@ class Post {
                 WHERE p.id = ?
             `;
             
-            db.get(sql, [id], (err, row) => {
+            db.get(sql, [id], async (err, row) => {
                 if (err) {
                     console.error('❌ [POST] Erro ao buscar post:', err);
                     reject(err);
@@ -51,10 +51,47 @@ class Post {
                             author_id: row.author_id,
                             author_name: row.author_name 
                         });
+                        
+                        // Buscar comentários do post
+                        try {
+                            const commentsResult = await Post.getCommentsForPost(id);
+                            row.comments = commentsResult;
+                            console.log('✅ [POST] Comentários incluídos:', commentsResult.length);
+                        } catch (commentErr) {
+                            console.error('❌ [POST] Erro ao buscar comentários:', commentErr);
+                            row.comments = [];
+                        }
                     } else {
                         console.log('❌ [POST] Post não encontrado:', id);
                     }
                     resolve(row || null);
+                }
+            });
+        });
+    }
+
+    // Método auxiliar para buscar comentários de um post
+    static async getCommentsForPost(postId) {
+        return new Promise((resolve, reject) => {
+            console.log('💬 [POST] Buscando comentários para post:', postId);
+            
+            const sql = `
+                SELECT c.*, 
+                       COALESCE(u.name, c.author_name) as author_name, 
+                       u.avatar as author_avatar
+                FROM comments c
+                LEFT JOIN users u ON c.author_id = u.id
+                WHERE c.post_id = ? AND c.status = 'approved'
+                ORDER BY c.created_at ASC
+            `;
+            
+            db.all(sql, [postId], (err, rows) => {
+                if (err) {
+                    console.error('❌ [POST] Erro ao buscar comentários:', err);
+                    reject(err);
+                } else {
+                    console.log('✅ [POST] Comentários encontrados:', rows.length);
+                    resolve(rows || []);
                 }
             });
         });
@@ -204,3 +241,4 @@ class Post {
 }
 
 module.exports = Post;
+
