@@ -1,78 +1,83 @@
-const { db } = require('../database');
+const { query } = require('../database');
 
 class Post {
     // Criar novo post
     static async create(postData) {
-        return new Promise((resolve, reject) => {
+        try {
             const { title, content, author_id, status = 'draft', tags, image } = postData;
             
             console.log('📄 [POST] Criando post:', { title, author_id, status });
             
             const sql = `
                 INSERT INTO posts (title, content, author_id, status, tags, image, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                RETURNING *
             `;
             
-            db.run(sql, [title, content, author_id, status, tags, image], function(err) {
-                if (err) {
-                    console.error('❌ [POST] Erro ao criar post:', err);
-                    reject(err);
-                } else {
-                    console.log('✅ [POST] Post criado com ID:', this.lastID);
-                    Post.findById(this.lastID)
-                        .then(post => resolve(post))
-                        .catch(err => reject(err));
-                }
-            });
-        });
+            const result = await query(sql, [title, content, author_id, status, tags, image]);
+            
+            if (result.rows.length > 0) {
+                console.log('✅ [POST] Post criado com ID:', result.rows[0].id);
+                // Buscar o post completo com dados do autor
+                return await Post.findById(result.rows[0].id);
+            } else {
+                throw new Error('Falha ao criar post');
+            }
+            
+        } catch (error) {
+            console.error('❌ [POST] Erro ao criar post:', error);
+            throw error;
+        }
     }
 
-    // Buscar post por ID - CORRIGIDO PARA INCLUIR COMENTÁRIOS
+    // Buscar post por ID - INCLUINDO COMENTÁRIOS
     static async findById(id) {
-        return new Promise(async (resolve, reject) => {
+        try {
             console.log('📄 [POST] Buscando post por ID:', id);
             
             const sql = `
                 SELECT p.*, u.name as author_name, u.email as author_email
                 FROM posts p
                 LEFT JOIN users u ON p.author_id = u.id
-                WHERE p.id = ?
+                WHERE p.id = $1
             `;
             
-            db.get(sql, [id], async (err, row) => {
-                if (err) {
-                    console.error('❌ [POST] Erro ao buscar post:', err);
-                    reject(err);
-                } else {
-                    if (row) {
-                        console.log('✅ [POST] Post encontrado:', { 
-                            id: row.id, 
-                            title: row.title, 
-                            author_id: row.author_id,
-                            author_name: row.author_name 
-                        });
-                        
-                        // Buscar comentários do post
-                        try {
-                            const commentsResult = await Post.getCommentsForPost(id);
-                            row.comments = commentsResult;
-                            console.log('✅ [POST] Comentários incluídos:', commentsResult.length);
-                        } catch (commentErr) {
-                            console.error('❌ [POST] Erro ao buscar comentários:', commentErr);
-                            row.comments = [];
-                        }
-                    } else {
-                        console.log('❌ [POST] Post não encontrado:', id);
-                    }
-                    resolve(row || null);
+            const result = await query(sql, [id]);
+            
+            if (result.rows.length > 0) {
+                const post = result.rows[0];
+                console.log('✅ [POST] Post encontrado:', { 
+                    id: post.id, 
+                    title: post.title, 
+                    author_id: post.author_id,
+                    author_name: post.author_name 
+                });
+                
+                // Buscar comentários do post
+                try {
+                    const comments = await Post.getCommentsForPost(id);
+                    post.comments = comments;
+                    console.log('✅ [POST] Comentários incluídos:', comments.length);
+                } catch (commentErr) {
+                    console.error('❌ [POST] Erro ao buscar comentários:', commentErr);
+                    post.comments = [];
                 }
-            });
-        });
+                
+                return post;
+            } else {
+                console.log('❌ [POST] Post não encontrado:', id);
+                return null;
+            }
+            
+        } catch (error) {
+            console.error('❌ [POST] Erro ao buscar post:', error);
+            throw error;
+        }
     }
 
     // Método auxiliar para buscar comentários de um post
     static async getCommentsForPost(postId) {
-        return new Promise((resolve, reject) => {
+        try {
             console.log('💬 [POST] Buscando comentários para post:', postId);
             
             const sql = `
@@ -81,162 +86,141 @@ class Post {
                        u.avatar as author_avatar
                 FROM comments c
                 LEFT JOIN users u ON c.author_id = u.id
-                WHERE c.post_id = ? AND c.status = 'approved'
+                WHERE c.post_id = $1 AND c.status = $2
                 ORDER BY c.created_at ASC
             `;
             
-            db.all(sql, [postId], (err, rows) => {
-                if (err) {
-                    console.error('❌ [POST] Erro ao buscar comentários:', err);
-                    reject(err);
-                } else {
-                    console.log('✅ [POST] Comentários encontrados:', rows.length);
-                    resolve(rows || []);
-                }
-            });
-        });
+            const result = await query(sql, [postId, 'approved']);
+            
+            console.log('✅ [POST] Comentários encontrados:', result.rows.length);
+            return result.rows;
+            
+        } catch (error) {
+            console.error('❌ [POST] Erro ao buscar comentários:', error);
+            throw error;
+        }
     }
 
     // Buscar posts publicados
     static async findPublished() {
-        return new Promise((resolve, reject) => {
+        try {
             console.log('📄 [POST] Buscando posts publicados...');
             
             const sql = `
                 SELECT p.*, u.name as author_name
                 FROM posts p
                 LEFT JOIN users u ON p.author_id = u.id
-                WHERE p.status = 'published'
+                WHERE p.status = $1
                 ORDER BY p.created_at DESC
             `;
             
-            db.all(sql, [], (err, rows) => {
-                if (err) {
-                    console.error('❌ [POST] Erro ao buscar posts publicados:', err);
-                    reject(err);
-                } else {
-                    console.log('✅ [POST] Posts publicados encontrados:', rows.length);
-                    resolve(rows || []);
-                }
-            });
-        });
+            const result = await query(sql, ['published']);
+            
+            console.log('✅ [POST] Posts publicados encontrados:', result.rows.length);
+            return result.rows;
+            
+        } catch (error) {
+            console.error('❌ [POST] Erro ao buscar posts publicados:', error);
+            throw error;
+        }
     }
 
-    // Buscar posts por autor - CORRIGIDO
+    // Buscar posts por autor
     static async findByAuthor(authorId) {
-        return new Promise((resolve, reject) => {
-            console.log('📄 [POST] Buscando posts do autor:', authorId, 'Tipo:', typeof authorId);
+        try {
+            console.log('📄 [POST] Buscando posts do autor:', authorId);
             
             const sql = `
                 SELECT p.*, u.name as author_name
                 FROM posts p
                 LEFT JOIN users u ON p.author_id = u.id
-                WHERE p.author_id = ?
+                WHERE p.author_id = $1
                 ORDER BY p.created_at DESC
             `;
             
-            db.all(sql, [authorId], (err, rows) => {
-                if (err) {
-                    console.error('❌ [POST] Erro ao buscar posts do autor:', err);
-                    reject(err);
-                } else {
-                    console.log('✅ [POST] Posts do autor encontrados:', rows.length);
-                    rows.forEach(post => {
-                        console.log('📄 [POST] -', { 
-                            id: post.id, 
-                            title: post.title, 
-                            author_id: post.author_id,
-                            status: post.status 
-                        });
-                    });
-                    resolve(rows || []);
-                }
-            });
-        });
+            const result = await query(sql, [authorId]);
+            
+            console.log('✅ [POST] Posts do autor encontrados:', result.rows.length);
+            return result.rows;
+            
+        } catch (error) {
+            console.error('❌ [POST] Erro ao buscar posts do autor:', error);
+            throw error;
+        }
     }
 
-    // Atualizar post - CORRIGIDO
+    // Atualizar post
     static async update(id, postData) {
-        return new Promise((resolve, reject) => {
+        try {
             const { title, content, status, tags, image } = postData;
             
             console.log('📄 [POST] Atualizando post:', id, 'Dados:', { title, status });
             
             const sql = `
                 UPDATE posts 
-                SET title = ?, content = ?, status = ?, tags = ?, image = ?, updated_at = CURRENT_TIMESTAMP
-                WHERE id = ?
+                SET title = $1, content = $2, status = $3, tags = $4, image = $5, updated_at = CURRENT_TIMESTAMP
+                WHERE id = $6
+                RETURNING *
             `;
             
-            db.run(sql, [title, content, status, tags, image, id], function(err) {
-                if (err) {
-                    console.error('❌ [POST] Erro ao atualizar post:', err);
-                    reject(err);
-                } else {
-                    console.log('✅ [POST] Post atualizado, linhas afetadas:', this.changes);
-                    if (this.changes === 0) {
-                        resolve(null);
-                    } else {
-                        Post.findById(id)
-                            .then(post => resolve(post))
-                            .catch(err => reject(err));
-                    }
-                }
-            });
-        });
+            const result = await query(sql, [title, content, status, tags, image, id]);
+            
+            if (result.rows.length > 0) {
+                console.log('✅ [POST] Post atualizado');
+                return await Post.findById(id);
+            } else {
+                console.log('❌ [POST] Post não encontrado para atualização');
+                return null;
+            }
+            
+        } catch (error) {
+            console.error('❌ [POST] Erro ao atualizar post:', error);
+            throw error;
+        }
     }
 
-    // Deletar post - CORRIGIDO
+    // Deletar post
     static async delete(id) {
-        return new Promise((resolve, reject) => {
+        try {
             console.log('📄 [POST] Deletando post:', id);
             
-            const sql = 'DELETE FROM posts WHERE id = ?';
+            const sql = 'DELETE FROM posts WHERE id = $1';
+            const result = await query(sql, [id]);
             
-            db.run(sql, [id], function(err) {
-                if (err) {
-                    console.error('❌ [POST] Erro ao deletar post:', err);
-                    reject(err);
-                } else {
-                    console.log('✅ [POST] Post deletado, linhas afetadas:', this.changes);
-                    resolve({ deleted: this.changes > 0 });
-                }
-            });
-        });
+            console.log('✅ [POST] Post deletado, linhas afetadas:', result.rowCount);
+            return { deleted: result.rowCount > 0 };
+            
+        } catch (error) {
+            console.error('❌ [POST] Erro ao deletar post:', error);
+            throw error;
+        }
     }
 
-    // Verificar se usuário é autor do post - CORRIGIDO
+    // Verificar se usuário é autor do post
     static async isAuthor(postId, userId) {
-        return new Promise((resolve, reject) => {
+        try {
             console.log('📄 [POST] Verificando autoria - Post:', postId, 'Usuário:', userId);
-            console.log('📄 [POST] Tipos - Post:', typeof postId, 'Usuário:', typeof userId);
             
-            const sql = 'SELECT author_id FROM posts WHERE id = ?';
+            const sql = 'SELECT author_id FROM posts WHERE id = $1';
+            const result = await query(sql, [postId]);
             
-            db.get(sql, [postId], (err, row) => {
-                if (err) {
-                    console.error('❌ [POST] Erro ao verificar autoria:', err);
-                    reject(err);
-                } else {
-                    if (row) {
-                        console.log('📄 [POST] Author_id do post:', row.author_id, 'Tipo:', typeof row.author_id);
-                        console.log('📄 [POST] User_id comparando:', userId, 'Tipo:', typeof userId);
-                        
-                        // Converter ambos para number para comparação segura
-                        const postAuthorId = Number(row.author_id);
-                        const currentUserId = Number(userId);
-                        
-                        const isAuthor = postAuthorId === currentUserId;
-                        console.log('📄 [POST] É autor?', isAuthor, '(', postAuthorId, '===', currentUserId, ')');
-                        
-                        resolve(isAuthor);
-                    } else {
-                        console.log('❌ [POST] Post não encontrado para verificação de autoria');
-                        resolve(false);
-                    }
-                }
-            });
-        });
+            if (result.rows.length > 0) {
+                const postAuthorId = Number(result.rows[0].author_id);
+                const currentUserId = Number(userId);
+                
+                const isAuthor = postAuthorId === currentUserId;
+                console.log('📄 [POST] É autor?', isAuthor, '(', postAuthorId, '===', currentUserId, ')');
+                
+                return isAuthor;
+            } else {
+                console.log('❌ [POST] Post não encontrado para verificação de autoria');
+                return false;
+            }
+            
+        } catch (error) {
+            console.error('❌ [POST] Erro ao verificar autoria:', error);
+            throw error;
+        }
     }
 }
 

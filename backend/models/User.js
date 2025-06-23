@@ -1,133 +1,140 @@
-const bcrypt = require('bcryptjs');
-const { db } = require('../database');
+const { query } = require('../database');
 
 class User {
-    // Buscar usuário por ID (com logs detalhados)
-    static async findById(id) {
-        return new Promise((resolve, reject) => {
-            console.log('👤 [USER] Buscando usuário por ID:', id);
-            console.log('👤 [USER] Tipo do ID:', typeof id);
-            
-            const sql = 'SELECT * FROM users WHERE id = ?';
-            
-            db.get(sql, [id], (err, row) => {
-                if (err) {
-                    console.error('❌ [USER] Erro ao buscar usuário por ID:', err);
-                    reject(err);
-                } else {
-                    console.log('👤 [USER] Resultado da busca:', row ? 'Usuário encontrado' : 'Usuário não encontrado');
-                    if (row) {
-                        console.log('👤 [USER] Dados do usuário:', { id: row.id, name: row.name, email: row.email });
-                    }
-                    resolve(row || null);
-                }
-            });
-        });
-    }
-
     // Criar novo usuário
     static async create(userData) {
-        return new Promise(async (resolve, reject) => {
-            try {
-                console.log('👤 [USER] Criando novo usuário:', userData.email);
-                const { name, email, password } = userData;
-                
-                // Hash da senha
-                const saltRounds = 10;
-                const hashedPassword = await bcrypt.hash(password, saltRounds);
-                
-                const sql = `
-                    INSERT INTO users (name, email, password, created_at)
-                    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-                `;
-                
-                db.run(sql, [name, email, hashedPassword], function(err) {
-                    if (err) {
-                        console.error('❌ [USER] Erro ao criar usuário:', err);
-                        reject(err);
-                    } else {
-                        console.log('✅ [USER] Usuário criado com ID:', this.lastID);
-                        resolve({
-                            id: this.lastID,
-                            name,
-                            email,
-                            created_at: new Date().toISOString()
-                        });
-                    }
-                });
-            } catch (error) {
-                console.error('❌ [USER] Erro no hash da senha:', error);
-                reject(error);
+        try {
+            const { name, email, password } = userData;
+            
+            console.log('👤 [USER] Criando usuário:', { name, email });
+            
+            const sql = `
+                INSERT INTO users (name, email, password, created_at, updated_at)
+                VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                RETURNING id, name, email, role, status, created_at
+            `;
+            
+            const result = await query(sql, [name, email, password]);
+            
+            if (result.rows.length > 0) {
+                console.log('✅ [USER] Usuário criado com ID:', result.rows[0].id);
+                return result.rows[0];
+            } else {
+                throw new Error('Falha ao criar usuário');
             }
-        });
+            
+        } catch (error) {
+            console.error('❌ [USER] Erro ao criar usuário:', error);
+            throw error;
+        }
     }
 
     // Buscar usuário por email
     static async findByEmail(email) {
-        return new Promise((resolve, reject) => {
+        try {
             console.log('👤 [USER] Buscando usuário por email:', email);
-            const sql = 'SELECT * FROM users WHERE email = ?';
             
-            db.get(sql, [email], (err, row) => {
-                if (err) {
-                    console.error('❌ [USER] Erro ao buscar usuário por email:', err);
-                    reject(err);
-                } else {
-                    console.log('👤 [USER] Resultado da busca por email:', row ? 'Encontrado' : 'Não encontrado');
-                    resolve(row || null);
-                }
-            });
-        });
+            const sql = 'SELECT * FROM users WHERE email = $1 AND status = $2';
+            const result = await query(sql, [email, 'active']);
+            
+            if (result.rows.length > 0) {
+                console.log('✅ [USER] Usuário encontrado:', { 
+                    id: result.rows[0].id, 
+                    name: result.rows[0].name 
+                });
+                return result.rows[0];
+            } else {
+                console.log('❌ [USER] Usuário não encontrado:', email);
+                return null;
+            }
+            
+        } catch (error) {
+            console.error('❌ [USER] Erro ao buscar usuário por email:', error);
+            throw error;
+        }
     }
 
-    // Listar todos os usuários (para debug)
-    static async listAll() {
-        return new Promise((resolve, reject) => {
-            console.log('👤 [USER] Listando todos os usuários...');
-            const sql = 'SELECT id, name, email, created_at FROM users';
+    // Buscar usuário por ID
+    static async findById(id) {
+        try {
+            console.log('👤 [USER] Buscando usuário por ID:', id);
             
-            db.all(sql, [], (err, rows) => {
-                if (err) {
-                    console.error('❌ [USER] Erro ao listar usuários:', err);
-                    reject(err);
-                } else {
-                    console.log('👤 [USER] Total de usuários encontrados:', rows.length);
-                    rows.forEach(user => {
-                        console.log('👤 [USER] -', { id: user.id, name: user.name, email: user.email });
-                    });
-                    resolve(rows || []);
-                }
-            });
-        });
+            const sql = 'SELECT id, name, email, avatar, bio, role, status, created_at FROM users WHERE id = $1';
+            const result = await query(sql, [id]);
+            
+            if (result.rows.length > 0) {
+                console.log('✅ [USER] Usuário encontrado:', { 
+                    id: result.rows[0].id, 
+                    name: result.rows[0].name 
+                });
+                return result.rows[0];
+            } else {
+                console.log('❌ [USER] Usuário não encontrado:', id);
+                return null;
+            }
+            
+        } catch (error) {
+            console.error('❌ [USER] Erro ao buscar usuário por ID:', error);
+            throw error;
+        }
     }
 
-    // Outros métodos...
+    // Atualizar usuário
     static async update(id, userData) {
-        return new Promise((resolve, reject) => {
-            const { name, email, avatar } = userData;
+        try {
+            const { name, email, avatar, bio } = userData;
+            
+            console.log('👤 [USER] Atualizando usuário:', id, { name, email });
             
             const sql = `
                 UPDATE users 
-                SET name = ?, email = ?, avatar = ?
-                WHERE id = ?
+                SET name = $1, email = $2, avatar = $3, bio = $4, updated_at = CURRENT_TIMESTAMP
+                WHERE id = $5
+                RETURNING id, name, email, avatar, bio, role, status, created_at, updated_at
             `;
             
-            db.run(sql, [name, email, avatar, id], function(err) {
-                if (err) {
-                    console.error('Erro ao atualizar usuário:', err);
-                    reject(err);
-                } else {
-                    if (this.changes === 0) {
-                        resolve(null);
-                    } else {
-                        User.findById(id)
-                            .then(user => resolve(user))
-                            .catch(err => reject(err));
-                    }
-                }
-            });
-        });
+            const result = await query(sql, [name, email, avatar, bio, id]);
+            
+            if (result.rows.length > 0) {
+                console.log('✅ [USER] Usuário atualizado');
+                return result.rows[0];
+            } else {
+                console.log('❌ [USER] Usuário não encontrado para atualização');
+                return null;
+            }
+            
+        } catch (error) {
+            console.error('❌ [USER] Erro ao atualizar usuário:', error);
+            throw error;
+        }
+    }
+
+    // Verificar se email já existe
+    static async emailExists(email, excludeId = null) {
+        try {
+            console.log('👤 [USER] Verificando se email existe:', email);
+            
+            let sql = 'SELECT id FROM users WHERE email = $1';
+            let params = [email];
+            
+            if (excludeId) {
+                sql += ' AND id != $2';
+                params.push(excludeId);
+            }
+            
+            const result = await query(sql, params);
+            
+            const exists = result.rows.length > 0;
+            console.log('👤 [USER] Email existe?', exists);
+            
+            return exists;
+            
+        } catch (error) {
+            console.error('❌ [USER] Erro ao verificar email:', error);
+            throw error;
+        }
     }
 }
 
 module.exports = User;
+
