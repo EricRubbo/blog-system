@@ -55,8 +55,14 @@ router.post('/register', registerValidation, async (req, res) => {
             });
         }
 
+// ...
+        // Hash da senha
+        const hashedPassword = await bcrypt.hash(password, 10); // <-- ADICIONADO
+        
         // Criar usuário
-        const user = await User.create({ name, email, password });
+        const user = await User.create({ name, email, password: hashedPassword }); // <-- ALTERADO
+// ...
+
 
         // Gerar token
         const token = jwt.sign(
