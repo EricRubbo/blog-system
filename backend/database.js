@@ -68,28 +68,11 @@ const initializeDatabase = async () => {
             )
         `);
 
-        // Índices para melhor performance
-        await query(`
-            CREATE INDEX IF NOT EXISTS idx_posts_author_id ON posts(author_id);
-        `);
-        
-        await query(`
-            CREATE INDEX IF NOT EXISTS idx_posts_status ON posts(status);
-        `);
-        
-        await query(`
-            CREATE INDEX IF NOT EXISTS idx_comments_post_id ON comments(post_id);
-        `);
-        
-        await query(`
-            CREATE INDEX IF NOT EXISTS idx_comments_author_id ON comments(author_id);
-        `);
-
         console.log('✅ [DATABASE] Tabelas criadas/verificadas com sucesso!');
         
     } catch (error) {
         console.error('❌ [DATABASE] Erro ao inicializar banco:', error);
-        throw error;
+        // REMOVIDO: throw error;
     }
 };
 
@@ -105,34 +88,9 @@ const testConnection = async () => {
     }
 };
 
-// Função para fechar conexões (graceful shutdown)
-const closePool = async () => {
-    try {
-        await pool.end();
-        console.log('✅ [DATABASE] Pool de conexões fechado');
-    } catch (error) {
-        console.error('❌ [DATABASE] Erro ao fechar pool:', error);
-    }
-};
-
-// Event listeners para graceful shutdown
-process.on('SIGINT', async () => {
-    console.log('🔄 [DATABASE] Recebido SIGINT, fechando conexões...');
-    await closePool();
-    process.exit(0);
-});
-
-process.on('SIGTERM', async () => {
-    console.log('🔄 [DATABASE] Recebido SIGTERM, fechando conexões...');
-    await closePool();
-    process.exit(0);
-});
-
 module.exports = {
     query,
     pool,
     initializeDatabase,
-    testConnection,
-    closePool
+    testConnection
 };
-
