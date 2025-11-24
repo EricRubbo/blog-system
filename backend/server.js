@@ -21,7 +21,7 @@ const PORT = process.env.PORT || 5000;
 initializeDatabase();
 
 // Testar conexão com o banco (para logs)
-testConnection();
+// testConnection();
 
 // Configurações de segurança
 app.use(helmet());
