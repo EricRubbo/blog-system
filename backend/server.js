@@ -49,7 +49,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Rotas da API
 app.use('/api/auth', authRoutes);
 app.use('/api/posts', postRoutes);
-app.use('/api/comments', commentRoutes);
+app.use('/api', commentRoutes);
 app.use('/api/upload', uploadRoutes);
 
 // Rota de teste
