@@ -4,7 +4,7 @@ class Comment {
     // Criar novo comentário
     static async create(commentData) {
         return new Promise((resolve, reject) => {
-            const { post_id, author_id, author_name, content } = commentData; // <-- DESESTRUTURAÇÃO
+            const { post_id, author_id, author_name, content } = commentData;
             
             console.log('💬 [COMMENT] Criando comentário:', { post_id, author_id });
             
@@ -13,7 +13,7 @@ class Comment {
                 VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))
             `;
             
-            db.run(sql, [post_id, author_id, author_name, content], function(err) { // <-- ORDEM CORRETA
+            db.run(sql, [post_id, author_id, author_name, content], function(err) {
                 if (err) {
                     console.error('❌ [COMMENT] Erro ao criar comentário:', err);
                     reject(err);
@@ -66,7 +66,20 @@ class Comment {
         });
     }
 
-    // ... (restante do código)
+    // Verificar autoria do comentário
+    static async isAuthor(commentId, userId) {
+        return new Promise((resolve, reject) => {
+            const sql = 'SELECT id FROM comments WHERE id = ? AND author_id = ?';
+            db.get(sql, [commentId, userId], (err, row) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(!!row);
+                }
+            });
+        });
+    }
+
     // Contar comentários por post
     static async countByPost(postId) {
         return new Promise((resolve, reject) => {
